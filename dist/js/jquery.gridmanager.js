@@ -1,6 +1,58 @@
 /*! gridmanager - v0.3.1 - 2014-09-22
 * http://neokoenig.github.io/jQuery-gridmanager/
-* Copyright (c) 2014 Tom King; Licensed MIT */
+* Copyright (c) 2014 Tom King; Licensed MIT 
+* 
+* Forked by Dominique Goubet / HENJI 23/06/2017
+* */
+
+function localize(language, langDirectory) {
+	// If a string is passed in parameter, let's load the file associated.
+	if (typeof(language)=="string") {
+		loadScript(langDirectory+"/"+language+".js");
+		return;
+	}
+ 
+	// Let's get the browser's language
+	var l_lang;
+	if (navigator.userLanguage) // Explorer
+		l_lang = navigator.userLanguage;
+	else if (navigator.language) // FF
+		l_lang = navigator.language;
+	else
+		l_lang = "";
+ 
+	// If the parameter passed is not a string or an array, 
+	// or if no browser's language can be found, let's use default file.
+	if (typeof(language)!="object" || l_lang == "") {
+		loadScript(langDirectory+"/en.js");
+		return;
+	}
+ 
+	var browserLang = l_lang.substr(0,2);
+ 
+	// If the browser's language is available in the translation files
+	// let's use that!
+	for (var i=0; i<language.length; i++) {
+		if (language[i] == browserLang) {
+			loadScript(langDirectory+"/"+browserLang+".js");
+			return;
+		} 
+	}
+ 
+	// If no language found, let's load the default language file:
+	loadScript(langDirectory+"/en.js");
+};
+ 
+// A simple function to dynamically load a script.
+// Please note it uses jQuery (but you can adapt it easily)!
+function loadScript(url) {
+	var script=document.createElement('script');
+	script.type='text/javascript';
+	script.src = url;
+	$("head").append(script);
+	return;
+};
+
 (function($  ){
 
       /**
@@ -37,8 +89,14 @@
          * @returns null
          */
         gm.init = function(){
-            gm.options = $.extend({},$.gridmanager.defaultOptions, options);
-            gm.log("INIT");
+        	gm.options = $.extend({},$.gridmanager.defaultOptions, options);          
+            gm.log("Language "+gm.options.language+" : "+gm.options.langDirectory);
+            localize(gm.options.language, gm.options.langDirectory);
+            if (gm.options.langDirectory == null) {
+            	alert(gridManagerMessages.MandatoryConfig);
+            	return;
+            }          
+            gm.log(gridManagerMessages.INIT);
             gm.addCSS(gm.options.cssInclude);
             gm.rteControl("init");
             gm.createCanvas();
@@ -46,7 +104,7 @@
             gm.initControls();
             gm.initDefaultButtons();
             gm.initCanvas();
-            gm.log("FINISHED");
+            gm.log(gridManagerMessages.FINISHED);
         };
 
 /*------------------------------------------ Canvas & Controls ---------------------------------------*/
@@ -58,7 +116,7 @@
          * @returns null
          */
         gm.createCanvas = function(){
-          gm.log("+ Create Canvas");
+          gm.log("+ "+gridManagerMessages.CreateCanvas);
            var html=gm.$el.html();
                 gm.$el.html("");
                 $('<div/>', {'id': gm.options.canvasId, 'html':html }).appendTo(gm.$el);
@@ -129,7 +187,7 @@
                         }
                       }
                   });
-                  gm.log("initMarkup ran");
+                  gm.log(gridManagerMessages.InitMarkupRan);
             };
 
         /*
@@ -138,10 +196,10 @@
 
         gm.initDefaultButtons = function(){
           if(gm.options.colSelectEnabled) {
-            gm.options.customControls.global_col.push({callback: gm.selectColClick, loc: 'top', iconClass: 'fa fa-square-o', title: 'Select Column'});
+            gm.options.customControls.global_col.push({callback: gm.selectColClick, loc: 'top', iconClass: 'fa fa-square-o', title: 'SelectColumn'});
           }
           if(gm.options.editableRegionEnabled) {
-            gm.options.customControls.global_col.push({callback: gm.addEditableAreaClick, loc: 'top', iconClass: 'fa fa-edit', title: 'Add Editable Region'});
+            gm.options.customControls.global_col.push({callback: gm.addEditableAreaClick, loc: 'top', iconClass: 'fa fa-edit', title: 'AddEditableRegion'});
           }
         };
 
@@ -191,22 +249,22 @@
          * @returns null
          */
         gm.createControls = function(){
-          gm.log("+ Create Controls");
+          gm.log("+ "+gridManagerMessages.CreateControls);
             var buttons=[];
             // Dynamically generated row template buttons
             $.each(gm.options.controlButtons, function(i, val){
               var _class=gm.generateButtonClass(val);
-              buttons.push("<a title='Add Row " + _class + "' class='" + gm.options.controlButtonClass + " add" + _class + "'><span class='" + gm.options.controlButtonSpanClass + "'></span> " + _class + "</a>");
+              buttons.push("<a title='"+gridManagerMessages.AddRow  + _class + "' class='" + gm.options.controlButtonClass + " add" + _class + "'><span class='" + gm.options.controlButtonSpanClass + "'></span> " + _class + "</a>");
               gm.generateClickHandler(val);
             });
 
-         /*
-          Generate the control bar markup
-        */
-         gm.$el.prepend(
-              $('<div/>',
-                  {'id': gm.options.controlId, 'class': gm.options.gmClearClass }
-              ).prepend(
+	         /*
+	          Generate the control bar markup
+	        */
+	         gm.$el.prepend(
+	              $('<div/>',
+	                  {'id': gm.options.controlId, 'class': gm.options.gmClearClass }
+	              ).prepend(
                     $('<div/>', {"class": gm.options.rowClass}).html(
                        $('<div/>', {"class": gm.options.colDesktopClass + gm.options.colMax}).addClass(gm.options.colAdditionalClass).html(
                           $('<div/>', {'id': 'gm-addnew'})
@@ -214,11 +272,51 @@
                           .addClass(gm.options.gmFloatLeft).html(
                             buttons.join("")
                           )
-                        ).append(gm.options.controlAppend)
+                        ).append(gm.buildControlBar())
                      )
                   )
               );
-            };
+        };
+        
+        /*
+         * Build the control Bar RH markup
+         */
+        gm.buildControlBar = function(){
+        	var editSourceCodeBtn = "";
+        	if (gm.options.showSourceCodeBtn){
+        		editSourceCodeBtn = "<button title='"+gridManagerMessages.EditSourceCode+"' type='button' class='btn btn-xs btn-primary gm-edit-mode'><span class='fa fa-code'></span></button>";      		 
+        	}
+        	var previewBtn = "";
+        	if (gm.options.showPreviewBtn){
+        		previewBtn = "<button title='"+gridManagerMessages.Preview+"' type='button' class='btn btn-xs btn-primary gm-preview'><span class='fa fa-eye'></span></button>";
+        	}
+        	var modeBtn = "";
+        	if (gm.options.showModeBtn){
+        		modeBtn = "<div class='dropdown pull-left gm-layout-mode'>" +
+	    			"<button type='button' class='btn btn-xs btn-primary dropdown-toggle' data-toggle='dropdown'><span class='caret'></span></button>" +
+	    			"<ul class='dropdown-menu' role='menu'>" +
+	    				"<li><a data-width='auto' title='"+gridManagerMessages.Desktop+"'><span class='fa fa-desktop'></span> "+gridManagerMessages.Desktop+"</a></li>" +
+	    				"<li><a title='"+gridManagerMessages.Tablet+"' data-width='768'><span class='fa fa-tablet'></span> "+gridManagerMessages.Tablet+"</a></li>" +
+	    				"<li><a title='"+gridManagerMessages.Phone+"' data-width='640'><span class='fa fa-mobile-phone'></span> "+gridManagerMessages.Phone+"</a></li>" +
+	    			"</ul>"+
+	    		"</div>";
+        	}
+        	var actionBtn = "";
+        	if (gm.options.showActionContainer){
+        		if (gm.options.showSaveBtn){
+	        		actionBtn = "<button type='button' class='btn  btn-xs  btn-primary dropdown-toggle' data-toggle='dropdown'>" +
+	        			"<span class='caret'></span><span class='sr-only'>"+gridManagerMessages.ToggleDropdown+"</span></button>" +
+	        			"<ul class='dropdown-menu' role='menu'>" +
+			    			"<li><a title='Save'  href='#' class='gm-save'><span class='fa fa-save'></span> Save</a></li>" +
+			    			"<li><a title='Reset Grid' href='#' class='gm-resetgrid'><span class='fa fa-trash-o'></span> Reset</a></li>" +
+	        			"</ul>";
+        		}
+        		else {
+        			actionBtn = "<a title='"+gridManagerMessages.Reset+"' type='button' class='btn btn-xs btn-primary gm-resetgrid'><span class='fa fa-trash-o'></span></a>";
+        		}
+        	}
+        	return "<div class='btn-group pull-right'>" + editSourceCodeBtn + previewBtn + modeBtn + actionBtn + "</div>";
+        };
 
         /**
          * Adds a CSS file or CSS Framework required for specific customizations
@@ -293,7 +391,7 @@
          */
         gm.initControls = function(){
           var canvas=gm.$el.find("#" + gm.options.canvasId);
-           gm.log("+ InitControls Running");
+           gm.log("+ "+gridManagerMessages.InitControlsRunning);
 
            // Turn editing on or off
            gm.$el.on("click", ".gm-preview", function(){
@@ -399,7 +497,7 @@
 
             // Add a nested row
             }).on("click", "a.gm-addRow", function(){
-               gm.log("Adding nested row");
+               gm.log(gridManagerMessages.AddNestedRow);
                $(this).closest("." +gm.options.gmEditClass).append(
                   $("<div>").addClass(gm.options.rowClass)
                             .html(gm.createCol(6))
@@ -424,15 +522,17 @@
                     col.switchClass(t.colClass, gm.options.currentClassMode + t.colWidth, 200);
                 }
 
-            // Reset all teh things
+            // Reset all the things
             }).on("click", "a.gm-resetgrid", function(){
-                canvas.html("");
-                gm.reset();
+            	if (confirm(gridManagerMessages.ResetConfirm)){
+	                canvas.html("");
+	                gm.reset();
+            	}
 
             // Remove a col or row
             }).on("click", "a.gm-removeCol", function(){
                $(this).closest("." +gm.options.gmEditClass).animate({opacity: 'hide', width: 'hide', height: 'hide'}, 400, function(){$(this).remove();});
-                 gm.log("Column Removed");
+                 gm.log(gridManagerMessages.ColumnRemoved);
 
             }).on("click", "a.gm-removeRow", function(){
                gm.log($(this).closest("." +gm.options.colSelector));
@@ -441,11 +541,11 @@
                  // Check for multiple editable regions and merge?
 
                 });
-                 gm.log("Row Removed");
+                 gm.log(gridManagerMessages.RowRemoved);
 
             // For all the above, prevent default.
             }).on("click", "a.gm-resetgrid, a.gm-remove, a.gm-removeRow, a.gm-save, button.gm-preview, a.gm-viewsource, a.gm-addColumn, a.gm-colDecrease, a.gm-colIncrease", function(e){
-               gm.log("Clicked: "   + $.grep((this).className.split(" "), function(v){
+               gm.log(gridManagerMessages.Clicked+": "   + $.grep((this).className.split(" "), function(v){
                  return v.indexOf('gm-') === 0;
                }).join());
                e.preventDefault();
@@ -671,7 +771,7 @@
           gm.switchLayoutMode(gm.options.layoutDefaultMode);
           var cols=canvas.find(gm.options.colSelector);
           var rows=canvas.find(gm.options.rowSelector);
-           gm.log("+ InitCanvas Running");
+           gm.log("+ "+gridManagerMessages.InitCanvasRunning);
               // Show the template controls
               gm.$el.find("#gm-addnew").show();
               // Sort Rows First
@@ -735,7 +835,7 @@
           var cols=canvas.find(gm.options.colSelector);
           var rows=canvas.find(gm.options.rowSelector);
 
-           gm.log("- deInitCanvas Running");
+           gm.log("- "+gridManagerMessages.DeInitCanvasRunning);
               // Hide template control
               gm.$el.find("#gm-addnew").hide();
               // Sort Rows First
@@ -760,7 +860,7 @@
               url:  gm.options.remoteURL,
               data: {content: canvas.html()}
             });
-            gm.log("Save Function Called");
+            gm.log(gridManagerMessages.SaveFunctionCalled);
         };
 
 
@@ -773,7 +873,7 @@
          * @returns null
          */
         gm.activateRows = function(rows){
-           gm.log("++ Activate Rows");
+           gm.log("++ "+gridManagerMessages.ActivateRows);
            rows.addClass(gm.options.gmEditClass)
                .prepend(gm.toolFactory(gm.options.rowButtonsPrepend))
                .append(gm.toolFactory(gm.options.rowButtonsAppend));
@@ -787,7 +887,7 @@
          * @returns null
          */
         gm.deactivateRows = function(rows){
-           gm.log("-- DeActivate Rows");
+           gm.log("-- "+gridManagerMessages.DeActivateRows);
            rows.removeClass(gm.options.gmEditClass)
                .removeClass("ui-sortable")
                .removeAttr("style");
@@ -804,7 +904,7 @@
              $.each(colWidths, function(i, val){
                 row.append(gm.createCol(val));
               });
-                gm.log("++ Created Row");
+                gm.log("++ "+gridManagerMessages.CreatedRow);
           return row;
         };
 
@@ -908,7 +1008,7 @@
               $(column).prepend(gm.toolFactory(gm.options.colButtonsPrepend));
               $(column).append(gm.toolFactory(gm.options.colButtonsAppend));
             });
-           gm.log("++ Activate Cols Ran");
+           gm.log("++ "+gridManagerMessages.ActivateColsRan);
         };
 
         /**
@@ -932,7 +1032,7 @@
               }
             }
            });
-           gm.log("-- deActivate Cols Ran");
+           gm.log("-- "+gridManagerMessages.deActivateColsRan);
         };
 
         /**
@@ -942,7 +1042,7 @@
           * @returns null
           */
          gm.createCol =  function(size){
-         var col= $("<div/>")
+        	 var col= $("<div/>")
             .addClass(gm.options.colClass)
             .addClass(gm.options.colDesktopClass + size)
             .addClass(gm.options.colTabletClass + size)
@@ -952,7 +1052,7 @@
             .html(gm.toolFactory(gm.options.colButtonsPrepend))
             .prepend(gm.toolFactory(gm.options.colButtonsPrepend))
             .append(gm.toolFactory(gm.options.colButtonsAppend));
-            gm.log("++ Created Column " + size);
+            gm.log("++ "+gridManagerMessages.CreatedColumn + size);
             return col;
         };
 
@@ -971,9 +1071,11 @@
           var cTagOpen = '<!--'+gm.options.gmEditRegion+'-->',
               cTagClose = '<!--\/'+gm.options.gmEditRegion+'-->',
               elem = null;
+          var newContentText = gm.options.newContentText ? gm.options.newContentText : gridManagerMessages.NewContent;
+          var controlContentElem = gm.createControlContentElem();
           $(('.'+gm.options.gmToolClass+':last'),container)
           .before(elem = $('<div>').addClass(gm.options.gmEditRegion+' '+gm.options.contentDraggableClass)
-            .append(gm.options.controlContentElem+'<div class="'+gm.options.gmContentRegion+'"><p>New Content</p></div>')).before(cTagClose).prev().before(cTagOpen);
+            .append(controlContentElem+'<div class="'+gm.options.gmContentRegion+'"><p>'+newContentText+'</p></div>')).before(cTagClose).prev().before(cTagOpen);
           gm.initNewContentElem(elem);
         };
 
@@ -1052,23 +1154,33 @@
          */
         gm.editableAreaFilter = function(canvasElem, isInit) {
           if(isInit) {
-            var cTagOpen = '<!--'+gm.options.gmEditRegion+'-->',
+        	  var controlContentElem = gm.createControlContentElem();
+        	  var cTagOpen = '<!--'+gm.options.gmEditRegion+'-->',
                 cTagClose = '<!--\/'+gm.options.gmEditRegion+'-->',
                 regex = new RegExp('(?:'+cTagOpen+')\\s*([\\s\\S]+?)\\s*(?:'+cTagClose+')', 'g'),
                 html = $(canvasElem).html(),
-                rep = cTagOpen+'<div class="'+gm.options.gmEditRegion+' '+gm.options.contentDraggableClass+'">'+gm.options.controlContentElem +'<div class="'+gm.options.gmContentRegion+'">$1</div></div>'+cTagClose;
+                rep = cTagOpen+'<div class="'+gm.options.gmEditRegion+' '+gm.options.contentDraggableClass+'">'+controlContentElem +'<div class="'+gm.options.gmContentRegion+'">$1</div></div>'+cTagClose;
 
             html = html.replace(regex, rep);
             $(canvasElem).html(html);
-            gm.log("editableAreaFilter init ran");
+            gm.log(gridManagerMessages.EditableAreaFilterInitRan);
           } else {
             $('.'+gm.options.controlNestedEditable, canvasElem).remove();
             $('.'+gm.options.gmContentRegion).contents().unwrap();
 
-            gm.log("editableAreaFilter deinit ran");
+            gm.log(gridManagerMessages.EditableAreaFilterDeinitRan);
           }
         };
-
+        
+        /*
+         * Create the controls for the editable region
+         */
+        gm.createControlContentElem = function(){
+        	return "<div class='gm-controls-element'> "+
+        		"<a class='gm-move fa fa-arrows' href='#' title='"+gridManagerMessages.Move+"'></a>"+
+        		"<a class='gm-delete fa fa-times' href='#' title='"+gridManagerMessages.Delete+"'></a>"+
+        	"</div>";
+        }
 /*------------------------------------------ BTNs ---------------------------------------*/
         /**
          * Returns an editing div with appropriate btns as passed in
@@ -1076,7 +1188,7 @@
          * @param {array} btns - Array of buttons (see options)
          * @return MemberExpression
          */
-        gm.toolFactory=function(btns){
+        gm.toolFactory=function(btns){       	
            var tools=$("<div/>")
               .addClass(gm.options.gmToolClass)
               .addClass(gm.options.gmClearClass)
@@ -1092,10 +1204,10 @@
          */
         gm.buttonFactory=function(btns){
           var buttons=[];
-          $.each(btns, function(i, val){
+          $.each(btns, function(i, val){   
             val.btnLabel = (typeof val.btnLabel === 'undefined')? '' : val.btnLabel;
-            val.title = (typeof val.title === 'undefined')? '' : val.title;
-            buttons.push("<" + val.element +" title='" + val.title + "' class='" + val.btnClass + "'><span class='"+val.iconClass+"'></span>&nbsp;" + val.btnLabel + "</" + val.element + "> ");
+            val.title = (typeof val.title === 'undefined')? '' : gridManagerMessages[val.title];
+            buttons.push('<' + val.element +' title="' + val.title + '" class="' + val.btnClass + '"><span class="'+val.iconClass+'"></span>&nbsp;' + val.btnLabel + '</' + val.element + '> ');
           });
           return buttons.join("");
         };
@@ -1124,7 +1236,7 @@
           var string="a.add" + gm.generateButtonClass(colWidths);
           var canvas=gm.$el.find("#" + gm.options.canvasId);
               gm.$el.on("click", string, function(e){
-                gm.log("Clicked " + string);
+                gm.log(gridManagerMessages.Clicked + string);
                 canvas.prepend(gm.createRow(colWidths));
                 gm.reset();
                 e.preventDefault();
@@ -1147,12 +1259,12 @@
             case 'init':
                 if(typeof window.CKEDITOR !== 'undefined'){
                     gm.options.rte='ckeditor';
-                    gm.log("++ CKEDITOR Found");
+                    gm.log("++ "+gridManagerMessages.CKEDITORFound);
                     window.CKEDITOR.disableAutoInline = true;
                }
                 if(typeof window.tinymce !== 'undefined'){
                     gm.options.rte='tinymce';
-                    gm.log("++ TINYMCE Found");
+                    gm.log("++ "+gridManagerMessages.TINYMCEFound);
                 }
                 break;
              case 'attach':
@@ -1168,7 +1280,7 @@
 
                     break;
                     default:
-                        gm.log("No RTE specified for attach");
+                        gm.log(gridManagerMessages.NoRTESpecifiedForAttach);
                 }
                 break; //end Attach
             case 'stop':
@@ -1176,7 +1288,7 @@
                     case 'tinymce':
                       // destroy TinyMCE
                       window.tinymce.remove();
-                         gm.log("-- TinyMCE destroyed");
+                         gm.log("-- "+gridManagerMessages.TinyMCEDestroyed);
                     break;
 
                     case 'ckeditor':
@@ -1185,16 +1297,16 @@
                         {
                           window.CKEDITOR.instances[name].destroy();
                         }
-                         gm.log("-- CKEDITOR destroyed");
+                         gm.log("-- "+gridManagerMessages.CKEDITORDestroyed);
                     break;
 
                     default:
-                        gm.log("No RTE specified for stop");
+                        gm.log(gridManagerMessages.NoRTESpecifiedForStop);
                 }
               break; //end stop
 
               default:
-                  gm.log("No RTE Action specified");
+                  gm.log(gridManagerMessages.NoRTEActionSpecified);
             }
         };
 
@@ -1207,7 +1319,7 @@
          * @returns null
          */
         gm.reset=function(){
-            gm.log("~~RESET~~");
+            gm.log("~~"+gridManagerMessages.RESET+"~~");
             gm.deinitCanvas();
             gm.initCanvas();
         };
@@ -1253,7 +1365,7 @@
                   .find("." + gm.options.gmToolClass).remove();
               // Destroy any RTEs
                   gm.rteControl("stop");
-              gm.log("~~Cleanup Ran~~");
+              gm.log("~~"+gridManagerMessages.CleanupRan+"~~");
         };
 
         /**
@@ -1333,11 +1445,6 @@
         // Default control button icon
         controlButtonSpanClass: "fa fa-plus-circle",
 
-        // Control bar RH dropdown markup
-        controlAppend: "<div class='btn-group pull-right'><button title='Edit Source Code' type='button' class='btn btn-xs btn-primary gm-edit-mode'><span class='fa fa-code'></span></button><button title='Preview' type='button' class='btn btn-xs btn-primary gm-preview'><span class='fa fa-eye'></span></button>     <div class='dropdown pull-left gm-layout-mode'><button type='button' class='btn btn-xs btn-primary dropdown-toggle' data-toggle='dropdown'><span class='caret'></span></button> <ul class='dropdown-menu' role='menu'><li><a data-width='auto' title='Desktop'><span class='fa fa-desktop'></span> Desktop</a></li><li><a title='Tablet' data-width='768'><span class='fa fa-tablet'></span> Tablet</a></li><li><a title='Phone' data-width='640'><span class='fa fa-mobile-phone'></span> Phone</a></li></ul></div>    <button type='button' class='btn  btn-xs  btn-primary dropdown-toggle' data-toggle='dropdown'><span class='caret'></span><span class='sr-only'>Toggle Dropdown</span></button><ul class='dropdown-menu' role='menu'><li><a title='Save'  href='#' class='gm-save'><span class='fa fa-save'></span> Save</a></li><li><a title='Reset Grid' href='#' class='gm-resetgrid'><span class='fa fa-trash-o'></span> Reset</a></li></ul></div>",
-
-        // Controls for content elements
-        controlContentElem: '<div class="gm-controls-element"> <a class="gm-move fa fa-arrows" href="#" title="Move"></a> <a class="gm-delete fa fa-times" href="#" title="Delete"></a> </div>',
    /*
      General editing classes---------------
   */
@@ -1380,36 +1487,35 @@
 
         // Buttons at the top of each row
         rowButtonsPrepend: [
-                {
-                 title:"Move",
-                 element: "a",
-                 btnClass: "gm-moveRow pull-left",
-                 iconClass: "fa fa-arrows "
+              {
+            	  title:"Move",
+            	  element: "a",
+            	  btnClass: "gm-moveRow pull-left",
+            	  iconClass: "fa fa-arrows "
               },
-                {
-                   title:"New Column",
-                   element: "a",
-                   btnClass: "gm-addColumn pull-left  ",
-                   iconClass: "fa fa-plus"
-                },
-                 {
-                   title:"Row Settings",
-                   element: "a",
-                   btnClass: "pull-right gm-rowSettings",
-                   iconClass: "fa fa-cog"
-                }
-
-            ],
+              {
+            	  title:"NewColumn",
+                  element: "a",
+                  btnClass: "gm-addColumn pull-left  ",
+                  iconClass: "fa fa-plus"
+              },
+              {
+                  title:"RowSettings",
+                  element: "a",
+                  btnClass: "pull-right gm-rowSettings",
+                  iconClass: "fa fa-cog"
+              }
+        ],
 
         // Buttons at the bottom of each row
         rowButtonsAppend: [
-                {
-                 title:"Remove row",
-                 element: "a",
-                 btnClass: "pull-right gm-removeRow",
-                 iconClass: "fa fa-trash-o"
-                }
-            ],
+              {
+            	  title:"RemoveRow",
+            	  element: "a",
+            	  btnClass: "pull-right gm-removeRow",
+            	  iconClass: "fa fa-trash-o"
+              }
+        ],
 
 
         // CUstom row classes - add your own to make them available in the row settings
@@ -1463,46 +1569,46 @@
         // Buttons to prepend to each column
         colButtonsPrepend: [
               {
-                 title:"Move",
-                 element: "a",
-                 btnClass: "gm-moveCol pull-left",
-                 iconClass: "fa fa-arrows "
+            	  title:"Move",
+	              element: "a",
+	              btnClass: "gm-moveCol pull-left",
+	              iconClass: "fa fa-arrows "
               },
               {
-                   title:"Column Settings",
-                   element: "a",
-                   btnClass: "pull-right gm-colSettings",
-                   iconClass: "fa fa-cog"
-                },
-               {
-                 title:"Make Column Narrower",
-                 element: "a",
-                 btnClass: "gm-colDecrease pull-left",
-                 iconClass: "fa fa-minus"
+            	  title:"ColumnSettings",
+                  element: "a",
+                  btnClass: "pull-right gm-colSettings",
+                  iconClass: "fa fa-cog"
               },
               {
-               title:"Make Column Wider",
-               element: "a",
-               btnClass: "gm-colIncrease pull-left",
-               iconClass: "fa fa-plus"
+            	  title:"MakeColumnNarrower",
+            	  element: "a",
+                  btnClass: "gm-colDecrease pull-left",
+                  iconClass: "fa fa-minus"
+              },
+              {
+            	  title:"MakeColumnWider",
+            	  element: "a",
+            	  btnClass: "gm-colIncrease pull-left",
+            	  iconClass: "fa fa-plus"
               }
-            ],
+        ],
 
         // Buttons to append to each column
         colButtonsAppend: [
-                {
-                 title:"Add Nested Row",
-                 element: "a",
-                 btnClass: "pull-left gm-addRow",
-                 iconClass: "fa fa-plus-square"
-                },
-                {
-                 title:"Remove Column",
-                 element: "a",
-                 btnClass: "pull-right gm-removeCol",
-                 iconClass: "fa fa-trash-o"
-                }
-            ],
+              {
+            	  title:"AddNestedRow",
+            	  element: "a",
+            	  btnClass: "pull-left gm-addRow",
+            	  iconClass: "fa fa-plus-square"
+              },
+              {
+            	  title:"RemoveColumn",
+            	  element: "a",
+            	  btnClass: "pull-right gm-removeCol",
+            	  iconClass: "fa fa-trash-o"
+              }
+        ],
 
         // CUstom col classes - add your own to make them available in the col settings
         colCustomClasses: ["example-col-class","test-class"],
@@ -1512,6 +1618,14 @@
 
         // Column resizing +- value: this is also the colMin value, as columns won't be able to go smaller than this number (otherwise you hit zero and all hell breaks loose)
         colResizeStep: 1,
+        
+        newContentText: "",
+        
+        showSourceCodeBtn: true,
+        showPreviewBtn: true,
+        showModeBtn: true,
+        showActionContainer : true,
+        showSaveBtn: true,
 
   /*
      Rich Text Editors---------------
