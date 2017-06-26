@@ -1032,7 +1032,7 @@ function loadScript(url) {
               }
             }
            });
-           gm.log("-- "+gridManagerMessages.deActivateColsRan);
+           gm.log("-- "+gridManagerMessages.DeActivateColsRan);
         };
 
         /**
@@ -1042,6 +1042,7 @@ function loadScript(url) {
           * @returns null
           */
          gm.createCol =  function(size){
+        	 console.log("createCol", gm.options.colButtonsPrepend, gm.options.colButtonsAppend);
         	 var col= $("<div/>")
             .addClass(gm.options.colClass)
             .addClass(gm.options.colDesktopClass + size)
@@ -1203,11 +1204,12 @@ function loadScript(url) {
          * @return CallExpression
          */
         gm.buttonFactory=function(btns){
+        	console.log(btns);
           var buttons=[];
           $.each(btns, function(i, val){   
-            val.btnLabel = (typeof val.btnLabel === 'undefined')? '' : val.btnLabel;
-            val.title = (typeof val.title === 'undefined')? '' : gridManagerMessages[val.title];
-            buttons.push('<' + val.element +' title="' + val.title + '" class="' + val.btnClass + '"><span class="'+val.iconClass+'"></span>&nbsp;' + val.btnLabel + '</' + val.element + '> ');
+            btnLabel = (typeof val.btnLabel === 'undefined')? '' : val.btnLabel;
+            title = (typeof val.title === 'undefined')? '' : gridManagerMessages[val.title];
+            buttons.push('<' + val.element +' title="' + title + '" class="' + val.btnClass + '"><span class="'+val.iconClass+'"></span>&nbsp;' + btnLabel + '</' + val.element + '> ');
           });
           return buttons.join("");
         };
